@@ -1,0 +1,243 @@
+<script type="text/javascript" src="https://openapi.map.naver.com/openapi/v3/maps.js?clientId=jad_kSTFUjp_mB7adnsn&submodules=geocoder"></script>
+
+<div id="map" style="width:80%;height:600px;"></div>
+<script>
+  var mapOptions = {
+    scaleControl: false,
+    logoControl: false,
+    mapDataControl: false,
+    zoomControl: true,
+    zoomControlOptions: {
+      style: N.ZoomControlStyle.LARGE,
+      position: N.Position.RIGHT_BOTTOM
+    },
+    minZoom: 1,
+    maxZoom: 15,
+  };
+
+  var map = new N.Map('map', mapOptions);
+
+  var dokdo = new N.LatLng(37.2405448, 131.8675005);
+  var cityhall = new naver.maps.LatLng(37.5666805, 126.9784147);
+  var naver_address = new N.LatLng(37.3595704, 127.105399);
+  var markers = [];
+  var infoWindows = [];
+  var data = [];
+  var indices = [];
+
+  map.setCenter(cityhall); // 중심 좌표 이동
+  map.setZoom(7);     // 줌 레벨 변경
+/*
+  var data = [
+    {name: "아리차이", address: "서울특별시 관악구 신림동길 4", link: "https://store.naver.com/restaurants/detail?id=11704746", x: 126.9282765, y: 37.4876462},
+    {name: "한우등촌골", address: "서울특별시 강서구 등촌로 201", link: "https://store.naver.com/restaurants/detail?id=35966485", x:126.86273, y: 37.5476847},
+    {name: "수유부추곱창", address: "서울특별시 강북구 도봉로87길 26-21", link: "https://store.naver.com/restaurants/detail?id=37111836", x: 127.0247721, y: 37.6393168},
+    {name: "강천민물장어", address:"서울특별시 강동구 올림픽로 834 한강시티라이프", link: "https://store.naver.com/restaurants/detail?id=18905396", x: 127.1297937, y: 37.5553916 }
+  ];
+  */
+
+  getData();
+
+  function getData() {
+    var bounds = map.getBounds();
+    var max = bounds._max;
+    var min = bounds._min;
+    $.ajax({
+      url: '/map_data'
+      ,type: 'POST'
+      ,dataType: 'json'
+      ,data: {
+        max: JSON.stringify(max)
+        ,min: JSON.stringify(min)
+        ,authenticity_token: $('[name="csrf-token"]').attr('content')
+        ,indices: JSON.stringify(indices)
+      }
+      ,success: function(result){
+        data = result[0];
+        indices = indices.concat(result[1]);
+        console.log(data);
+        createElements();
+      }
+    });
+  }
+
+  function createElements() {
+    var new_markers = [];
+    var new_infoWindows [];
+    for(var i=0; i< data.length; i++) {
+      var school = data[i]
+      var marker = new N.Marker({
+        position: new N.LatLng(school.lat, school.lng),
+        map: map,
+        icon: {
+          url: 'https://navermaps.github.io/maps.js/docs/' +'/img/example/sally.png',
+          size: new N.Size(50, 52),
+          origin: new N.Point(0, 0),
+          anchor: new N.Point(25, 26)
+        },
+        animation: 1
+      });
+      var contentString = [
+        '<div class="iw_inner">',
+        '<h3>'+school.name+'</h3>',
+        '<p>'+school.address+'</p>',
+        '<a href="http://www.naver.com">알아보기</a>'
+      ].join('')
+
+      var infowindow = new N.InfoWindow({
+        content: contentString
+      });
+
+      markers.push(marker);
+      infoWindows.push(infowindow);
+    }
+    addEvents();
+  }
+
+
+  function getClickHandler(seq) {
+    return function(e) {
+        var marker = markers[seq],
+        infoWindow = infoWindows[seq];
+
+        if (infoWindow.getMap()) { //정보가 맵에 표시되어 있는지
+            infoWindow.close();
+          } else {
+            infoWindow.open(map, marker);
+        }
+    }
+  }
+
+  function addEvents() {
+
+      for (var i=0, ii=markers.length; i<ii; i++) {
+          N.Event.addListener(markers[i], 'click', getClickHandler(i));
+      }
+      updateMarkers(map, markers);
+  }
+
+  naver.maps.Event.addListener(map, 'idle', function() {
+    getData();
+  });
+
+  function updateMarkers(map, markers) {
+
+    var mapBounds = map.getBounds();
+    var marker, position;
+
+    for (var i = 0; i < markers.length; i++) {
+
+        marker = markers[i]
+        position = marker.getPosition();
+
+        if (mapBounds.hasLatLng(position)) {
+            showMarker(map, marker);
+        } else {
+            hideMarker(map, marker);
+        }
+    }
+  }
+
+
+  function showMarker(map, marker) {
+
+    if (marker.getMap()) return;
+    marker.setMap(map);
+  }
+
+  function hideMarker(map, marker) {
+
+    if (!marker.getMap()) return;
+    marker.setMap(null);
+  }
+/*
+  var naver_marker = new N.Marker({
+    position: naver_address,
+    map: map
+  });
+
+  var cityhall_marker = new N.Marker({
+    position: cityhall,
+    map: map
+  });
+
+  var dokdo_marker = new N.Marker({
+    position: dokdo,
+    map: map
+  });
+
+  var markers = [naver_marker, cityhall_marker, dokdo_marker];
+
+  var naver_content = [
+    '<div class="iw_inner">',
+    '   <h3>네이버 그린펙토리</h3>',
+    '   <p>경기도 성남시 분당구 정자동 불정로 6<br>',
+    '       <img src="https://lh5.googleusercontent.com/p/AF1QipNAZt5eWSQWak7tEYjnK0chquAGEEW217So-l9I=w408-h268-k-no" width="55" height="55" alt="서울시청" class="thumb" /><br>',
+    '       02-120 | 공공,사회기관 > 특별,광역시청<br>',
+    '       <a href="http://www.seoul.go.kr" target="_blank">www.seoul.go.kr/</a>',
+    '   </p>',
+    '</div>'
+  ].join('');
+
+  var cityhall_content = [
+    '<div class="iw_inner">',
+    '   <h3>서울특별시청</h3>',
+    '   <p>서울특별시 중구 태평로1가 31 | 서울특별시 중구 세종대로 110 서울특별시청<br>',
+    '       <img src="./img/hi-seoul.jpg" width="55" height="55" alt="서울시청" class="thumb" /><br>',
+    '       02-120 | 공공,사회기관 > 특별,광역시청<br>',
+    '       <a href="http://www.seoul.go.kr" target="_blank">www.seoul.go.kr/</a>',
+    '   </p>',
+    '</div>'
+  ].join('');
+
+  var dokdo_content = [
+    '<div class="iw_inner">',
+    '   <h3>서울특별시청</h3>',
+    '   <p>서울특별시 중구 태평로1가 31 | 서울특별시 중구 세종대로 110 서울특별시청<br>',
+    '       <img src="./img/hi-seoul.jpg" width="55" height="55" alt="서울시청" class="thumb" /><br>',
+    '       02-120 | 공공,사회기관 > 특별,광역시청<br>',
+    '       <a href="http://www.seoul.go.kr" target="_blank">www.seoul.go.kr/</a>',
+    '   </p>',
+    '</div>'
+  ].join('');
+
+  var naver_info = new N.InfoWindow({
+      content: naver_content
+  });
+
+  var cityhall_info = new N.InfoWindow({
+      content: cityhall_content
+  });
+
+  var dokdo_info = new N.InfoWindow({
+      content: dokdo_content
+  });
+
+  var infos = [naver_info, cityhall_info, dokdo_info];
+
+  N.Event.addListener(naver_marker, "click", function(e) {
+      if (naver_info.getMap()) { // 맵에 정보창이 열려 있으면 정보창에 관한 정보가 반환, 열려 있지 않다면 null 반환
+          naver_info.close();
+      } else {
+          naver_info.open(map, naver_marker);
+      }
+  });
+
+  N.Event.addListener(cityhall_marker, "click", function(e) {
+      if (cityhall_info.getMap()) { // 맵에 정보창이 열려 있으면 정보창에 관한 정보가 반환, 열려 있지 않다면 null 반환
+          cityhall_info.close();
+      } else {
+          cityhall_info.open(map, cityhall_marker);
+      }
+  });
+
+  N.Event.addListener(dokdo_marker, "click", function(e) {
+      if (dokdo_info.getMap()) { // 맵에 정보창이 열려 있으면 정보창에 관한 정보가 반환, 열려 있지 않다면 null 반환
+          dokdo_info.close();
+      } else {
+          dokdo_info.open(map, dokdo_marker);
+      }
+  });
+*/
+
+</script>
